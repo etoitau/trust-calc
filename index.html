@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Trust Calcuator</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    <style>
+        /* Set gray background color */
+        .sidenav {
+          background-color: #f1f1f1;
+        }
+
+        /* Set black background color, white text and some padding */
+        nav, footer {
+    /*      background-color: #555;*/
+          color: white;
+          padding: 15px;
+        }
+
+        /* On small screens, set height to 'auto' for sidenav and grid */
+        @media screen and (max-width: 767px) {
+          .sidenav {
+            height: auto;
+            padding: 15px;
+          }
+          .row.content {height:auto;} 
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <a class="navbar-brand" href="#">Trust Calculator</a>
+</nav>
+  
+<div class="container-fluid text-center">    
+    <div class="row content">
+    <div class="col-sm-2 sidenav">
+    </div>
+        
+    <div class="col-sm-8 text-left mt-3 mb-3"> 
+        <p>Enter your estimates for the below parameters to get an estimate of how long the funds will last or how much will get donated and when.</p>
+        <hr>
+        <h3>Parameters</h3>
+        <form>
+            <div class="form-row">
+                <div class="col-md-8">
+                    <label for="principal">Current principal</label>
+                    <div class="input-group mb-3">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text">$</span>
+                        </div>
+                        <input id="principal" type="text" class="form-control" aria-label="dollars" placeholder="6000000">
+                        <div class="input-group-append">
+                            <span class="input-group-text">.00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label for="return">Return on principal</label>
+                    <div class="input-group mb-3">
+                        <input id="return" type="text" class="form-control" aria-label="percent" placeholder="1.0">
+                        <div class="input-group-append">
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="col-md-8">
+                    <label for="cost">Average round trip cost</label>
+                    <div class="input-group mb-3">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text">$</span>
+                        </div>
+                        <input id="cost" type="text" class="form-control" aria-label="dollars" placeholder="1000">
+                        <div class="input-group-append">
+                            <span class="input-group-text">.00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label for="inflation">Inflation</label>
+                    <div class="input-group mb-3">
+                        <input id="inflation" type="text" class="form-control" aria-label="percent" placeholder="3.0">
+                        <div class="input-group-append">
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <label for="bene">Beneficiaries (name, age; next name, age; ...)</label>
+                <textarea class="form-control" id="bene" rows="3" placeholder="Matilda, 4; Adam, 4; Lucy, 7; Arthur, 7; Clayton, 25; Lilly, 29; Clell, 33; Sarah, 33; Ariel, 37; Kyle, 37; Micaela, 39; Brian, 59; Laura, 62; Steve, 64; Doug, 66"></textarea>
+            </div>
+            
+            <div class="form-row">
+                <div class="col-md-6">
+                    <label for="guests">Average guests per beneficiary per trip</label>
+                    <div class="input-group mb-3">
+                        <input id="guests" type="text" class="form-control" aria-label="number" placeholder="1">
+                        <div class="input-group-append">
+                            <span class="input-group-text">guests</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label for="inflation">Average life expectancy</label>
+                    <div class="input-group mb-3">
+                        <input id="inflation" type="text" class="form-control" aria-label="age" placeholder="78">
+                        <div class="input-group-append">
+                            <span class="input-group-text">years</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-block btn-dark" onclick="runCalc()">Run Calculator</button>
+        </form>
+    </div>
+        
+    
+        
+    <div class="col-sm-2 sidenav">
+    </div>
+    </div>
+</div>
+
+<footer class="footer footer-dark bg-dark container-fluid text-center">
+  <p>kchatman@gmail.com</p>
+</footer>
+    
+<script>
+    function runCalc() {
+        
+    }
+    
+</script>
+
+</body>
+</html>
