@@ -21,13 +21,17 @@
           padding: 15px;
         }
 
+        #warning {
+          color: red;
+        }
+
         /* On small screens, set height to 'auto' for sidenav and grid */
         @media screen and (max-width: 767px) {
           .sidenav {
             height: auto;
             padding: 15px;
           }
-          .row.content {height:auto;} 
+          .row.content {height:auto;}
         }
     </style>
 </head>
@@ -36,13 +40,13 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
       <a class="navbar-brand" href="#">Trust Calculator</a>
 </nav>
-  
-<div class="container-fluid text-center">    
+
+<div class="container-fluid text-center">
     <div class="row content">
     <div class="col-sm-2 sidenav">
     </div>
-        
-    <div class="col-sm-8 text-left mt-3 mb-3"> 
+
+    <div class="col-sm-8 text-left mt-3 mb-3">
         <p>Enter your estimates for the below parameters to get an estimate of how long the funds will last or how much will get donated and when.</p>
         <hr>
         <h3>Parameters</h3>
@@ -70,7 +74,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="form-row">
                 <div class="col-md-8">
                     <label for="cost">Average round trip cost</label>
@@ -94,12 +98,12 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="form-row">
-                <label for="bene">Beneficiaries (name, age; next name, age; ...)</label>
-                <textarea class="form-control" id="bene" rows="3" placeholder="Matilda, 4; Adam, 4; Lucy, 7; Arthur, 7; Clayton, 25; Lilly, 29; Clell, 33; Sarah, 33; Ariel, 37; Kyle, 37; Micaela, 39; Brian, 59; Laura, 62; Steve, 64; Doug, 66"></textarea>
+                <label for="beneficiaries">Beneficiaries (name, age; next name, age; ...)</label>
+                <textarea class="form-control" id="beneficiaries" rows="3" placeholder="Matilda, 4; Adam, 4; Lucy, 7; Arthur, 7; Clayton, 25; Lilly, 29; Clell, 33; Sarah, 33; Ariel, 37; Kyle, 37; Micaela, 39; Brian, 59; Laura, 62; Steve, 64; Doug, 66"></textarea>
             </div>
-            
+
             <div class="form-row">
                 <div class="col-md-6">
                     <label for="guests">Average guests per beneficiary per trip</label>
@@ -111,9 +115,9 @@
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <label for="inflation">Average life expectancy</label>
+                    <label for="lifespan">Average life expectancy</label>
                     <div class="input-group mb-3">
-                        <input id="inflation" type="text" class="form-control" aria-label="age" placeholder="78">
+                        <input id="lifespan" type="text" class="form-control" aria-label="age" placeholder="78">
                         <div class="input-group-append">
                             <span class="input-group-text">years</span>
                         </div>
@@ -122,10 +126,12 @@
             </div>
             <button type="button" class="btn btn-block btn-dark" onclick="runCalc()">Run Calculator</button>
         </form>
+        <div id="warning"></div>
+        <div id="message"></div>
+        <table id="table-data" class="table"></table>
     </div>
-        
-    
-        
+
+
     <div class="col-sm-2 sidenav">
     </div>
     </div>
@@ -134,12 +140,164 @@
 <footer class="footer footer-dark bg-dark container-fluid text-center">
   <p>kchatman@gmail.com</p>
 </footer>
-    
+
 <script>
+    let warningDiv;
+    let messageDiv;
+    let table;
     function runCalc() {
-        
+        getOutputDivs();
+        clearOutput();
+        let input = getInput();
+        if (! input) {
+            return;
+        }
+        let data = inputToData(input);
+        while (true) {
+            nextData = incData(data);
+            if (nextData.principal <= 0) {
+                messageDiv.append("Runs out of money with "
+                    + nextData.years.reduce((a, b) => a + b, 0)
+                    + "beneficiary-years remaining.");
+                return;
+            } else if (len(nextData.years) < 1) {
+                messageDiv.append(nextData.principal + " gets donated");
+                return;
+            }
+            addRow(nextData);
+            data = nextData;
+        }
     }
-    
+
+    function addRow(data) {
+        if (! table.firstChild) {
+            initTable();
+        }
+        let row = table.insertRow();
+        row.insertCell().appendChild(document.createTextNode(data.principal));
+        row.insertCell().appendChild(document.createTextNode(data.cost));
+        let trips = len(data.years) * data.guests;
+        // todo kyle
+    }
+
+    function initTable() {
+        let labels = ["Principal", "Trip Cost", "Trips Taken", "Interest"];
+        let thead = table.createTHead();
+        let row = thead.insertRow();
+        for (let label in labels) {
+            let th = document.createElement("th");
+            th.scope = "col";
+            let text = document.createTextNode(label);
+            th.appendChild(text);
+            row.appendChild(th);
+        }
+        table.creteBody();
+    }
+
+    function incData(data) {
+        let startPrinc = data.principal;
+        let cost = data.cost * len(data.years) * data.guests;
+        let avgPrinc = startPrinc - cost / 2;
+        let interest = avgPrinc * (exp(data.rateReturn / 100) - 1);
+        return {
+            "principal" : startPrinc - cost + interest,
+            "rateReturn" : data.rateReturn,
+            "cost" : data.cost * exp(data.inflation / 100),
+            "inflation" : data.inflation,
+            "years" : data.years.map(item => item - 1),
+            "guests" : data.guests,
+        };
+    }
+
+    function inputToData(input) {
+        let years = [];
+        for (let age in input.bene) {
+            if (age < input.lifespan) {
+                years.push(input.lifespan - age);
+            }
+        }
+        input.put("years", years);
+        return input;
+    }
+
+    function getInput() {
+        let data = {};
+
+        data.put("principal", getFloatFrom(document.getElementById("principal")));
+        data.put("rateReturn", getFloatFrom(document.getElementById("return")));
+        data.put("cost", getFloatFrom(document.getElementById("cost")));
+        data.put("inflation", getFloatFrom(document.getElementById("inflation")));
+        data.put("bene", getBeneFrom(document.getElementById("beneficiaries"));
+        data.put("guests", getFloatFrom(document.getElementById("guests")));
+        data.put("lifespan", getFloatFrom(document.getElementById("guests"));
+
+        for (const [key, value] of Object.entries(data)) {
+            if (! value) {
+                return null;
+            }
+        }
+        return data;
+    }
+
+    function getBeneFrom(element) {
+        let ages = [];
+        let inString = element.value ? element.value : element.placeholder;
+        let entries = inString.split(";")
+        for (entry in entries) {
+            let age = parseInt(entry.split(",")[-1]);
+            if (! age) {
+                warningDiv.append = "Bad input for beneficiaries<br>";
+                return null;
+            }
+            ages.push(age);
+        }
+        return ages;
+    }
+
+    // function getIntFrom(element) {
+    //     if (! element.value) {
+    //         return parseInt(element.placeholder, 10);
+    //     }
+    //     let parsed = parseInt(element.value, 10);
+    //     if (isNaN(parsed)) {
+    //         warningDiv.append = "Bad input for " + element.id + "<br>";
+    //         return null;
+    //     }
+    //     return parsed;
+    // }
+
+    function getFloatFrom(element) {
+        if (! element.value) {
+            return parseFloat(element.placeholder, 10);
+        }
+        let parsed = parseFloat(element.value, 10);
+        if (isNaN(parsed)) {
+            warningDiv.append = "Bad input for " + element.id + "<br>";
+            return null;
+        }
+        return parsed;
+    }
+
+    function getOutputDivs() {
+        if (! warningDiv) {
+            warningDiv = document.getElementById("warning");
+        }
+        if (! messageDiv) {
+            messageDiv = document.getElementById("message");
+        }
+        if (! table) {
+            table = document.getElementById("table-data");
+        }
+    }
+
+    function clearOutput() {
+        for (let element in [warningDiv, messageDiv, tableDiv]) {
+            while (element.firstChild) {
+                element.removeChile(element.firstChild);
+            }
+        }
+    }
+
 </script>
 
 </body>
