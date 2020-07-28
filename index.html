@@ -105,10 +105,19 @@
             </div>
 
             <div class="form-row">
-                <div class="col-md-6">
-                    <label for="guests">Average guests per beneficiary per trip</label>
+                <div class="col-md-4">
+                    <label for="guests">Avg guests per beneficiary per trip</label>
                     <div class="input-group mb-3">
                         <input id="guests" type="text" class="form-control" aria-label="number">
+                        <div class="input-group-append">
+                            <span class="input-group-text">guests</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label for="nTrips">Avg trips per year per beneficiary (3 max)</label>
+                    <div class="input-group mb-3">
+                        <input id="nTrips" type="text" class="form-control" aria-label="number">
                         <div class="input-group-append">
                             <span class="input-group-text">guests</span>
                         </div>
@@ -155,7 +164,7 @@
     const GUESTS = 1;
     const LIFESPAN = 78;
     // Inputs
-    let principalField, returnField, costField, inflationField, beneficiaryField, guestsField, lifespanField;
+    let principalField, returnField, costField, inflationField, beneficiaryField, guestsField, nTripsField, lifespanField;
     
     window.onload = () => {
         principalField = document.getElementById("principal");
@@ -170,6 +179,8 @@
         beneficiaryField.value = BENEFICIARIES;
         guestsField = document.getElementById("guests");
         guestsField.value = GUESTS;
+        nTripsField = document.getElementById("nTrips");
+        nTripsField.value = TRIPS_PER_YEAR;
         lifespanField = document.getElementById("lifespan");
         lifespanField.value = LIFESPAN;
     }
@@ -182,19 +193,44 @@
             return;
         }
         let data = inputToData(input);
+        let tripDelay = 1 / data.nTrips;
+        let timeToTrip = tripDelay;
+        let timeToYear = 1.0;
+        
+        addRow(data);
+        
+        let yearCost = 0.0;
+        
         while (true) {
-            nextData = incData(data);
-            if (nextData.principal <= 0) {
+            let isTrip = timeToTrip < timeToYear;
+            
+            t = (isTrip) ? timeToTrip : timeToYear;
+            
+            data = incData(data, t);
+            data.years = decYears(data.years, t);
+            
+            if (isTrip) {
+                let tripCost = getCost(data);
+                yearCost += tripCost;
+                data.principal -= tripCost; 
+                timeToYear -= t;
+                timeToTrip = tripDelay;
+            } else {
+                addRow(data, yearCost);
+                yearCost = 0.0;
+                timeToTrip -= t;
+                timeToYear = 1;
+            }
+            
+            if (data.principal <= 0) {
                 messageDiv.append("Runs out of money with "
-                    + nextData.years.reduce((a, b) => a + b, 0)
+                    + data.years.reduce((a, b) => a + b, 0)
                     + " beneficiary-years remaining.");
                 return;
-            } else if (nextData.years.length < 1) {
-                messageDiv.append(nextData.principal.toFixed(2) + " gets donated");
+            } else if (data.years.length < 1) {
+                messageDiv.append(data.principal.toFixed(2) + " gets donated");
                 return;
             }
-            addRow(data);
-            data = nextData;
         }
     }
 
@@ -221,23 +257,37 @@
             row.appendChild(th);
         }
     }
-
-    function incData(data) {
+    
+    function copyData(data) {
         return {
-            "principal" : data.principal - getCost(data) + getInterest(data),
+            "principal" : data.principal,
             "rateReturn" : data.rateReturn,
-            "cost" : data.cost * Math.exp(data.inflation / 100),
+            "cost" : data.cost,
             "inflation" : data.inflation,
-            "years" : decYears(data.years),
-            "guests" : data.guests,
-        };
+            "years" : data.years,
+            "nTrips" : data.nTrips,
+            "guests" : data.guests
+        }
+    }
+
+    function incData(data, time) {
+        let copy = copyData(data);
+        copy.cost = data.cost * Math.exp(data.inflation / 100 * time);
+        copy.principal = data.principal * Math.exp(data.rateReturn / 100 * time);
+        return copy;
     }
     
-    function decYears(years) {
+//    function takeTrips(data) {
+//        let copy = copyData(data);
+//        copy.principal = data.principal - getCost(data);
+//        return copy;
+//    }
+    
+    function decYears(years, amt) {
         let newYears = [];
         for (year of years) {
-            if (year > 1) {
-                newYears.push(year - 1);
+            if (year > amt) {
+                newYears.push(year - amt);
             }
         }
         return newYears;
@@ -254,7 +304,7 @@
     }
     
     function getTrips(data) {
-        return data.years.length * (1 + data.guests) * TRIPS_PER_YEAR;
+        return data.years.length * (1 + data.guests);
     }
     
     function inputToData(input) {
@@ -271,13 +321,14 @@
     function getInput() {
         let data = {};
 
-        data["principal"] = getFloatFrom(document.getElementById("principal"));
-        data["rateReturn"] = getFloatFrom(document.getElementById("return"));
-        data["cost"] = getFloatFrom(document.getElementById("cost"));
-        data["inflation"] = getFloatFrom(document.getElementById("inflation"));
-        data["bene"] = getBeneFrom(document.getElementById("beneficiaries"));
-        data["guests"] = getFloatFrom(document.getElementById("guests"));
-        data["lifespan"] = getFloatFrom(document.getElementById("lifespan"));
+        data["principal"] = getFloatFrom(principalField);
+        data["rateReturn"] = getFloatFrom(returnField);
+        data["cost"] = getFloatFrom(costField);
+        data["inflation"] = getFloatFrom(inflationField);
+        data["bene"] = getBeneFrom(beneficiaryField);
+        data["guests"] = getFloatFrom(guestsField);
+        data["nTrips"] = getFloatFrom(nTripsField);
+        data["lifespan"] = getFloatFrom(lifespanField);
 
         for (const [key, value] of Object.entries(data)) {
             if (! value && value != 0) {
