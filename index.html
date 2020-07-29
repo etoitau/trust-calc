@@ -51,7 +51,7 @@
         <hr>
         <h3>Parameters</h3>
         <form>
-            <div class="form-row">
+            <div class="form-row mb-3">
                 <div class="col-md-8">
                     <label for="principal">Current principal</label>
                     <div class="input-group mb-3">
@@ -75,7 +75,7 @@
                 </div>
             </div>
 
-            <div class="form-row">
+            <div class="form-row - mb-3">
                 <div class="col-md-8">
                     <label for="cost">Average round trip cost</label>
                     <div class="input-group mb-3">
@@ -99,12 +99,12 @@
                 </div>
             </div>
 
-            <div class="form-row">
+            <div class="form-row mb-3">
                 <label for="beneficiaries">Beneficiaries (name, age; next name, age; ...)</label>
                 <textarea class="form-control" id="beneficiaries" rows="3"></textarea>
             </div>
 
-            <div class="form-row">
+            <div class="form-row mb-3">
                 <div class="col-md-4">
                     <label for="guests">Avg guests per beneficiary per trip</label>
                     <div class="input-group mb-3">
@@ -119,12 +119,12 @@
                     <div class="input-group mb-3">
                         <input id="nTrips" type="text" class="form-control" aria-label="number">
                         <div class="input-group-append">
-                            <span class="input-group-text">guests</span>
+                            <span class="input-group-text">trips</span>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <label for="lifespan">Average life expectancy</label>
+                    <label for="lifespan">Average life expectancy for beneficiaries</label>
                     <div class="input-group mb-3">
                         <input id="lifespan" type="text" class="form-control" aria-label="age">
                         <div class="input-group-append">
@@ -133,11 +133,11 @@
                     </div>
                 </div>
             </div>
-            <button type="button" class="btn btn-block btn-dark" onclick="runCalc()">Run Calculator</button>
+            <button type="button" class="btn btn-block btn-dark mb-3" onclick="runCalc()">Run Calculator</button>
         </form>
         <div id="warning"></div>
         <div id="message"></div>
-        <table id="table-data" class="table"></table>
+        <table id="table-data" class="table mt-3"></table>
     </div>
 
 
@@ -193,20 +193,24 @@
             return;
         }
         let data = inputToData(input);
-        let tripDelay = 1 / data.nTrips;
+        
+        let tripDelay = (data.nTrips == 0) ? data.lifespan * 2 : 1 / data.nTrips;
         let timeToTrip = tripDelay;
         let timeToYear = 1.0;
         
-        addRow(data);
-        
         let yearCost = 0.0;
+        let yearInterest = 0.0;
+        let year = 0;
+        let startPrincipal = data.principal;
         
         while (true) {
             let isTrip = timeToTrip < timeToYear;
             
             t = (isTrip) ? timeToTrip : timeToYear;
             
+            let principalBefore = data.principal;
             data = incData(data, t);
+            yearInterest += data.principal - principalBefore;
             data.years = decYears(data.years, t);
             
             if (isTrip) {
@@ -216,37 +220,42 @@
                 timeToYear -= t;
                 timeToTrip = tripDelay;
             } else {
-                addRow(data, yearCost);
+                addRow(year, startPrincipal, yearInterest, yearCost);
                 yearCost = 0.0;
+                yearInterest = 0.0;
+                startPrincipal = data.principal;
+                year++;
                 timeToTrip -= t;
                 timeToYear = 1;
             }
             
             if (data.principal <= 0) {
                 messageDiv.append("Runs out of money with "
-                    + data.years.reduce((a, b) => a + b, 0)
+                    + data.years.reduce((a, b) => a + b, 0).toFixed(0)
                     + " beneficiary-years remaining.");
                 return;
             } else if (data.years.length < 1) {
-                messageDiv.append(data.principal.toFixed(2) + " gets donated");
+                messageDiv.append("$" + data.principal.toFixed(2) + " gets donated");
                 return;
             }
         }
     }
 
-    function addRow(data) {
+    function addRow(year, startPrincipal, yearInterest, yearCost) {
         if (! table.firstChild) {
             initTable();
         }
+        let endPrincipal = startPrincipal + yearInterest - yearCost;
         let row = table.insertRow();
-        row.insertCell().appendChild(document.createTextNode(data.principal.toFixed(2)));
-        row.insertCell().appendChild(document.createTextNode(data.cost.toFixed(2)));
-        row.insertCell().appendChild(document.createTextNode(getTrips(data)));
-        row.insertCell().appendChild(document.createTextNode(getInterest(data).toFixed(2)));
+        row.insertCell().appendChild(document.createTextNode(year));
+        row.insertCell().appendChild(document.createTextNode(startPrincipal.toFixed(2)));
+        row.insertCell().appendChild(document.createTextNode(yearInterest.toFixed(2)));
+        row.insertCell().appendChild(document.createTextNode(yearCost.toFixed(2)));
+        row.insertCell().appendChild(document.createTextNode(endPrincipal.toFixed(2)));
     }
 
     function initTable() {
-        let labels = ["Principal", "Trip Cost", "Trips Taken", "Interest"];
+        let labels = ["Year", "Starting Principal", "Interest", "Costs", "Ending Principal"];
         let thead = table.createTHead();
         let row = thead.insertRow();
         for (let label of labels) {
@@ -276,12 +285,6 @@
         copy.principal = data.principal * Math.exp(data.rateReturn / 100 * time);
         return copy;
     }
-    
-//    function takeTrips(data) {
-//        let copy = copyData(data);
-//        copy.principal = data.principal - getCost(data);
-//        return copy;
-//    }
     
     function decYears(years, amt) {
         let newYears = [];
@@ -329,12 +332,47 @@
         data["guests"] = getFloatFrom(guestsField);
         data["nTrips"] = getFloatFrom(nTripsField);
         data["lifespan"] = getFloatFrom(lifespanField);
-
+        
+        // checks
+        let ok = true;
         for (const [key, value] of Object.entries(data)) {
             if (! value && value != 0) {
-                return null;
+                ok = false;
+                break;
             }
         }
+        
+        if (data.principal < 0) {
+            warningDiv.innerHTML += "Principal should probably start positive<br>";
+        }
+        
+        if (data.rateReturn < 0) {
+            warningDiv.innerHTML += "Rate of return is usually positive<br>";
+        }
+        
+        if (data.cost < 0) {
+            warningDiv.innerHTML += "Cost should probably not be negative<br>";
+        }
+        
+        if (data.guests < 0) {
+            warningDiv.innerHTML += "Negative guests doesn't make much sense<br>";
+        }
+        
+        if (data.guests < 0) {
+            warningDiv.innerHTML += "How are you taking negative trips?<br>";
+        } else if (data.guests > 3) {
+            warningDiv.innerHTML += "Note three is the max allowed<br>"
+        }
+        
+        if (data.lifespan < 0) {
+            let pos = data.lifespan * -1;
+            let plural = (pos == 1) ? "" : "s";
+            warningDiv.innerHTML += "Yikes, humans died out " + pos + " year" + plural + " ago?<br>";
+        } else if (data.lifespan > 122) {
+            warningDiv.innerHTML += "Yeah we're coming for your record, Jeanne Calment!<br>"
+        }
+        
+        
         return data;
     }
 
@@ -346,7 +384,7 @@
             let parts = entry.split(",");
             let age = parseInt(parts[parts.length - 1]);
             if (! age) {
-                warningDiv.append = "Bad input for beneficiaries<br>";
+                warningDiv.innerHTML += "Bad input for beneficiaries<br>";
                 return null;
             }
             ages.push(age);
@@ -354,25 +392,13 @@
         return ages;
     }
 
-    // function getIntFrom(element) {
-    //     if (! element.value) {
-    //         return parseInt(element.placeholder, 10);
-    //     }
-    //     let parsed = parseInt(element.value, 10);
-    //     if (isNaN(parsed)) {
-    //         warningDiv.append = "Bad input for " + element.id + "<br>";
-    //         return null;
-    //     }
-    //     return parsed;
-    // }
-
     function getFloatFrom(element) {
         if (! element.value) {
             return parseFloat(element.placeholder, 10);
         }
         let parsed = parseFloat(element.value, 10);
         if (isNaN(parsed)) {
-            warningDiv.append = "Bad input for " + element.id + "<br>";
+            warningDiv.innerHTML += "Bad input for " + element.id + "<br>";
             return null;
         }
         return parsed;
